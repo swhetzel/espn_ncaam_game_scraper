@@ -1,0 +1,174 @@
+import urllib.request
+from datetime import datetime
+#~ from datetime import time
+
+def html_to_list(url, game_id):
+    """converts html to a list of relevant data"""
+    if url == '':
+        url = ('https://www.espn.com/mens-college-basketball/playbyplay?gameId='
+            + game_id)
+    with urllib.request.urlopen(url) as response:
+        html = str(response.read())
+    raw_plays = []
+    raw_plays = html.split('class="time-stamp"')
+    return raw_plays    
+
+
+def get_time_stamp(play):
+    """Returns the formatted time stamp for a given play"""
+    time_stamp = ''
+    for i in range(0,7):
+        if play[i] == '<':
+            break
+        elif play[i] == '>':
+            continue
+        time_stamp += play[i]
+    return(time_stamp)
+    
+    
+def get_play_details(play):
+    """Returns the formatted details of the play"""
+    play_details = ''
+    raw_play_details = play.split('class="game-details">')[1]
+    count = 0
+    while True:
+        if raw_play_details[count] == '<':
+            break
+        play_details += raw_play_details[count]
+        count += 1
+    return(play_details)
+
+
+def get_score(play):
+    """return a list with [away_score, home_score] after the play"""
+    scores = []
+    away_score_str =''
+    home_score_str = ''
+    raw_score = play.split('class="combined-score">')[1]
+    count = 0
+    home_away_flag = 0
+    while True:
+        if raw_score[count] == '<':
+            break
+        elif raw_score[count] in [' ','-']:
+            home_away_flag = 1
+        elif home_away_flag == 0:
+            away_score_str += raw_score[count]
+        elif home_away_flag == 1:
+            home_score_str += raw_score[count]
+        count += 1
+    
+    scores.append(int(away_score_str))
+    scores.append(int(home_score_str))
+    return(scores)
+    
+    
+def get_score_designation(plays, scores):
+    """Return the score designation field, either '' or 'Scoring Play'"""
+    scoring_play_flag = 0
+    if len(plays) > 0:
+        last_score = plays[-1][-2]
+        if scores == last_score:
+            scoring_play_flag = 0
+        if scores != last_score:
+            scoring_play_flag = 1
+    if scoring_play_flag == 0:
+        return("")
+    if scoring_play_flag == 1:
+        return("Scoring Play") 
+        
+def get_period(plays, play, period_count):
+    """Return the period designation, 1 = 1st half, 2 = 2nd half, all else 
+        denote overtime periods"""
+    if len(plays) == 0:
+        period_count = period_count
+    elif "End of" in plays[-1][1]:
+        period_count += 1
+    return period_count
+      
+    
+def get_formatted_time(time_stamp, period_count):
+    """Return the absolute formatted time based on the timestamp and period"""
+    time_delt = (datetime.strptime("20:00", "%M:%S") - datetime.strptime(time_stamp, "%M:%S"))
+    new_time = datetime(year=2020,month=1,day=1,hour=0,minute=0,second=0) + time_delt
+    minutes = new_time.minute
+    seconds = new_time.second
+    form_time = datetime(year=2020, month=1, day=1, hour=0,minute=minutes,second=seconds)
+    
+    if period_count == 2:
+        time_delt = time_delt + datetime.strptime("20:00", "%M:%S")
+        minutes = time_delt.minute
+        seconds = time_delt.second
+        form_time = datetime(year=2020, month=1, day=1, hour=0,minute=minutes,second=seconds)
+    
+    if period_count > 2:
+        overtime = period_count - 2
+        minutes_added = 40 + overtime*5
+        time_string = str(minutes_added) + ':00' 
+        time_delt = (datetime.strptime(time_string, "%M:%S") - 
+            datetime.strptime(time_stamp, "%M:%S"))
+        new_time = datetime(year=2020,month=1,day=1,hour=0,minute=0,second=0) + time_delt
+        minutes = new_time.minute
+        seconds = new_time.second
+        form_time = datetime(year=2020, month=1, day=1, hour=0,minute=minutes,second=seconds)
+    return form_time
+    
+
+def play_by_play_builder(url='', game_id = '401123374'):
+    """Builds a list of lists with play data in each of the rows"""
+    #play contents format:
+    #0 - timestamp #:## or ##:##
+    #1 - play details 
+    #2 - list of scores [away, home]
+    #3 - scoring play designation
+    #4 - period number
+    #5 - formatted time
+    
+    #convert the html in the url to a raw list of unformatted play data
+    raw_plays = html_to_list(url, game_id)
+    
+    #empty list to add individual pieces of formatted play data to
+    plays = []
+    
+    #This will keep track of which period the play is in
+    period_count = 1
+    
+    # Format raw_plays data and add data to plays list
+    for play in raw_plays:
+        
+        #Skip the first row which is all the irrelevant data
+        if play == raw_plays[0]:
+            continue
+        
+        #temporary list to house an individual play's data
+        play_data = []
+        
+        #Get Time Stamp and append to play_data
+        time_stamp = get_time_stamp(play)
+        play_data.append(time_stamp)
+        
+        #Get the text description of the play and append to play_data
+        play_details = get_play_details(play)
+        play_data.append(play_details)
+    
+        #Get the score that existed after the play was finished    
+        scores = get_score(play)
+        play_data.append(scores)
+        
+        #Get the scoring play designation, designates whether or not the play
+        #resulted in a score
+        scoring_designation = get_score_designation(plays, scores)
+        play_data.append(scoring_designation)
+        
+        #Get the period number and append it to play_data
+        period_count = get_period(plays, play, period_count)
+        play_data.append(period_count)
+        
+        #Get the formatted datetime and append it to play_data
+        formatted_time = get_formatted_time(time_stamp, period_count)
+        play_data.append(formatted_time)
+  
+        #Append completed play_data list to the list of plays
+        plays.append(play_data)
+    
+    return plays
