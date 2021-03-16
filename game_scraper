@@ -137,6 +137,7 @@ def get_score_designation(plays, scores):
     if scoring_play_flag == 1:
         return("Scoring Play") 
         
+    
 def get_period(plays, play, period_count):
     """Return the period designation, 1 = 1st half, 2 = 2nd half, all else 
         denote overtime periods"""
@@ -178,6 +179,7 @@ def get_formatted_time(time_stamp, period_count, date_time_flag):
             return form_time
         else:
             return return_time
+    
     
 def get_player_name(play_details, teams_list):
     """Returns the name of the player"""
@@ -226,7 +228,6 @@ def get_player_name(play_details, teams_list):
             return name
         else:
             return ''
-
 
 
 def get_player_abbr(player_name):
@@ -299,6 +300,7 @@ def get_shot_type(play_type, play_details):
         return shot_type
     else:
         return ''
+    
     
 def get_team(player_abbr, roster_dicts):
     """Gets the team that the named player is on"""
