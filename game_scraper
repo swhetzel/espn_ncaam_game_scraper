@@ -1,17 +1,77 @@
 import urllib.request
 from datetime import datetime
-#~ from datetime import time
 
-def html_to_list(url, game_id):
-    """converts html to a list of relevant data"""
+def convert_html_roster(url, game_id):
+    """converts raw html for box score url to a string"""
+    if url == '':
+        url = ('https://www.espn.com/mens-college-basketball/boxscore?gameId='
+               + game_id)
+    with urllib.request.urlopen(url) as response:
+        html_roster = str(response.read())
+        return html_roster
+
+def roster_html_to_lists(game_id, teams_list):
+    """converts html string to  list of relevant player names associated with
+    a team"""
+    url = ''
+    html = convert_html_roster(url, game_id)
+    string1 = '<article class="boxscore-tabs game-package-box-score"'
+    
+    raw_players = html.split(string1)
+    raw_html_rosters = raw_players[1].split('>' + teams_list[1] + '</div></div><table')
+    raw_away_players = raw_html_rosters[0].split('class="abbr">')   
+    raw_home_players = raw_html_rosters[1].split('class="abbr">')
+    away_players = []
+    for raw_player in raw_away_players:
+        player_string = ''
+        if raw_player == raw_away_players[0]:
+            continue
+        for i in raw_player:
+            if i == '<':
+                break
+            player_string += i
+        away_players.append(player_string.strip())            
+    home_players = []
+    for raw_player in raw_home_players:
+        player_string = ''
+        if raw_player == raw_home_players[0]:
+            continue
+        for i in raw_player:
+            if i == '<':
+                break
+            player_string += i
+        home_players.append(player_string.strip())            
+    roster_dicts = {}
+    roster_dicts[teams_list[0]] = away_players
+    roster_dicts[teams_list[1]] = home_players
+    return roster_dicts
+        
+
+def convert_html_plays(url, game_id):
+    """converts raw html to a string"""
     if url == '':
         url = ('https://www.espn.com/mens-college-basketball/playbyplay?gameId='
             + game_id)
     with urllib.request.urlopen(url) as response:
-        html = str(response.read())
+        html_plays = str(response.read())  
+    return html_plays
+
+
+def plays_html_to_list(url, game_id):
+    """converts html string to a list of relevant play by play data"""
+    html = convert_html_plays(url, game_id)
     raw_plays = []
     raw_plays = html.split('class="time-stamp"')
     return raw_plays    
+
+
+def get_teams(url, game_id):
+    """Defines and returns the home & away teams from the raw html string"""
+    html = convert_html_plays(url, game_id)
+    raw_list = html.split("<title>")
+    teams_list_raw = raw_list[1].split(' - Play')
+    teams_list = teams_list_raw[0].split(' vs. ')
+    return(teams_list)
 
 
 def get_time_stamp(play):
@@ -67,7 +127,7 @@ def get_score_designation(plays, scores):
     """Return the score designation field, either '' or 'Scoring Play'"""
     scoring_play_flag = 0
     if len(plays) > 0:
-        last_score = plays[-1][-2]
+        last_score = plays[-1][2]
         if scores == last_score:
             scoring_play_flag = 0
         if scores != last_score:
@@ -87,7 +147,7 @@ def get_period(plays, play, period_count):
     return period_count
       
     
-def get_formatted_time(time_stamp, period_count):
+def get_formatted_time(time_stamp, period_count, date_time_flag):
     """Return the absolute formatted time based on the timestamp and period"""
     time_delt = (datetime.strptime("20:00", "%M:%S") - datetime.strptime(time_stamp, "%M:%S"))
     new_time = datetime(year=2020,month=1,day=1,hour=0,minute=0,second=0) + time_delt
@@ -111,11 +171,147 @@ def get_formatted_time(time_stamp, period_count):
         minutes = new_time.minute
         seconds = new_time.second
         form_time = datetime(year=2020, month=1, day=1, hour=0,minute=minutes,second=seconds)
-    return form_time
+        return_time = datetime.time(form_time)
+        
+        #flag to determine if you want this as datetime or time
+        if date_time_flag:
+            return form_time
+        else:
+            return return_time
     
+def get_player_name(play_details, teams_list):
+    """Returns the name of the player"""
+    #set a flag that will ignore plays that don't have associated 
+        #players
+    except_list = [
+        'End of',
+        'Jump Ball won by',
+        'timeout'
+        ]
+    break_flag = 0
+    for i in except_list:
+        if i in play_details:
+            break_flag = 1
+    #return nothing if in exception list, otherwise return the name
+    if break_flag == 1:
+        return ''        
+    else:    
+        name_str = play_details.replace("\\'","'")
+        name_str = name_str.replace('Foul on ','')
+        name = ''
+        name_exceptions = ['III','IV','Jr.']
+        exception_flag = 0
+        space_flag = 0
+        for i in name_exceptions:
+            if i in name_str:
+                exception_flag = 1
+                
+        if exception_flag == 1:
+            for i in name_str:
+                if i == ' ':
+                    space_flag += 1
+                if space_flag == 3:
+                    break
+                name += i
+        else:
+            for i in name_str:
+                if i == ' ':
+                    space_flag += 1
+                if space_flag == 2:
+                    break
+                name += i
+        name = name.strip()
+        name = name.replace(' made', '')
+        if name not in teams_list:
+            return name
+        else:
+            return ''
 
-def play_by_play_builder(url='', game_id = '401123374'):
-    """Builds a list of lists with play data in each of the rows"""
+
+
+def get_player_abbr(player_name):
+    """returns the abbreviated name of the player, useful for linking roster
+    information/team information to the play"""
+    flag = 0
+    name_string = ''
+    if player_name != '':
+        name_string += player_name[0]
+        while True:
+            if player_name[1] == '.':
+                name_string += '.'
+                name_string += player_name[2]
+                break
+            else:
+                break
+
+        name_string += '.'
+        for i in player_name:
+            if i == ' ':
+                flag = 1
+            if flag == 1:
+                name_string += i
+        name_string = name_string.strip()
+        if "Jr." not in name_string:
+            name_string = name_string.strip('.')
+        return name_string
+    else: 
+        return ''
+
+
+def get_play_type(play_details):
+    """Returns what kind of play occurred"""
+    play_details = play_details.lower()
+    play_type = ''
+    if 'made' in play_details:
+        play_type = 'make'
+    elif 'missed' in play_details:
+        play_type = 'miss'
+    elif 'foul on' in play_details:
+        play_type = 'foul'
+    elif 'defensive rebound' in play_details:
+        play_type = 'defensive rebound'
+    elif 'offensive rebound' in play_details:
+        play_type = 'offensive rebound'
+    elif 'turnover' in play_details:
+        play_type = 'turnover'
+    elif 'block' in play_details:
+        play_type = 'block'
+    elif 'steal' in play_details:
+        play_type = 'steal'  
+    return play_type
+
+
+def get_shot_type(play_type, play_details):
+    """Returns what kind of shot occurred if there was one"""
+    shot_bool = False
+    for i in ['make','miss']:
+        if i in play_type:
+            shot_bool = True
+    shot_type = ''
+    if "Three Point" in play_details:
+        shot_type = 'three'
+    elif "Free Throw" in play_details:
+        shot_type = 'free throw'
+    else:
+        shot_type = 'two'
+    
+    if shot_bool:
+        return shot_type
+    else:
+        return ''
+    
+def get_team(player_abbr, roster_dicts):
+    """Gets the team that the named player is on"""
+    team = ''
+    for dict_team, player_list in roster_dicts.items():
+        if player_abbr in player_list:
+            team = dict_team    
+    return team
+
+
+def play_by_play_builder(game_id='401123374', url='',
+                         date_time_flag=True):
+    """Builds a list of lists with play data in each of the 'rows'"""
     #play contents format:
     #0 - timestamp #:## or ##:##
     #1 - play details 
@@ -123,9 +319,18 @@ def play_by_play_builder(url='', game_id = '401123374'):
     #3 - scoring play designation
     #4 - period number
     #5 - formatted time
+    #6 - Player name
+    #7 - Play type
+    #8 - Shot type
+    #9 - Player abbreviation
+    #10 - Team
     
     #convert the html in the url to a raw list of unformatted play data
-    raw_plays = html_to_list(url, game_id)
+    raw_plays = plays_html_to_list(url, game_id)
+    teams_list = get_teams(url, game_id)
+    
+    #Load the dictionaries of rosters
+    roster_dicts = roster_html_to_lists(game_id, teams_list)
     
     #empty list to add individual pieces of formatted play data to
     plays = []
@@ -165,10 +370,33 @@ def play_by_play_builder(url='', game_id = '401123374'):
         play_data.append(period_count)
         
         #Get the formatted datetime and append it to play_data
-        formatted_time = get_formatted_time(time_stamp, period_count)
+        formatted_time = get_formatted_time(time_stamp, 
+                                            period_count, 
+                                            date_time_flag)
         play_data.append(formatted_time)
-  
+        
+        #Append name data to play_data
+        player_name = get_player_name(play_details, teams_list)
+        play_data.append(player_name)
+
+        #Append play type data to play_data
+        play_type = get_play_type(play_details)
+        play_data.append(play_type)
+        
+        #Append shot type data to play_data
+        shot_type = get_shot_type(play_type, play_details)
+        play_data.append(shot_type)
+
+        #Append the player name abbreviation to play_data
+        player_abbr =get_player_abbr(player_name)
+        play_data.append(player_abbr)
+        
+        #Append the team to play_data
+        team = get_team(player_abbr, roster_dicts)
+        play_data.append(team)
+
         #Append completed play_data list to the list of plays
         plays.append(play_data)
-    
+        
     return plays
+
