@@ -58,7 +58,7 @@ def get_team_shots(plays, game_id, periods=[1,2,3,4,5,6,7,8,9,10]):
     return shot_list
 
 
-def get_team_fg_pcts(plays, game_id):
+def get_team_fg_pcts(plays, game_id, periods=[1,2,3,4,5,6,7,8,9,10]):
     """Gets the field goal percentages of each team and returns them 
     as a list"""
     #[[away 2 pct, away 3 pct, away fg pct], 
@@ -66,7 +66,7 @@ def get_team_fg_pcts(plays, game_id):
     
     away_2_pct, away_3_pct, away_fg_pct = float(0), float(0), float(0),
     home_2_pct, home_3_pct, home_fg_pct = float(0), float(0), float(0),    
-    team_shots = get_team_shots(plays, game_id)
+    team_shots = get_team_shots(plays, game_id, periods)
     
     try:
         away_2_pct = round(team_shots[0][0][1]/team_shots[0][0][0],3)
