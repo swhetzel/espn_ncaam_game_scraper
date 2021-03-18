@@ -1,3 +1,21 @@
+# -*- coding: utf-8 -*-
+"""This module contains functions that build a list of play by play data.
+
+This module is designed to scrape the ESPN website for play by play data from
+a single NCAA men's basketball game and converts it into a list of plays with 
+relevant data using the play_by_play_builder function which is dependent 
+upon the rest of the functions in the module. 
+
+The play_by_play-builder function exports a list of lists with each interior 
+list containing a single play's worth of data. See the play_by_blay_builder
+function for a list structure. 
+
+Also housed in here is the get_teams function, which generates a list of both
+teams playing the game and is useful for automatically labeling graphics in 
+other modules. 
+
+"""
+
 import urllib.request
 from datetime import datetime
 
@@ -140,7 +158,7 @@ def get_score_designation(plays, scores):
         return "Scoring Play"
 
 
-def get_period(plays, play, period_count):
+def get_period(plays, period_count):
     """Return the period designation, 1 = 1st half, 2 = 2nd half, all else
     denote overtime periods"""
     if len(plays) == 0:
@@ -378,7 +396,7 @@ def play_by_play_builder(game_id="401123374", url="", date_time_flag=True):
         play_data.append(scoring_designation)
 
         # Get the period number and append it to play_data
-        period_count = get_period(plays, play, period_count)
+        period_count = get_period(plays, period_count)
         play_data.append(period_count)
 
         # Get the formatted datetime and append it to play_data

@@ -1,8 +1,9 @@
 # -*- coding: utf-8 -*-
-"""
-Created on Sun Mar 14 15:15:44 2021
+"""This module draws upon the espn_scraper module to compile team statistics over a discrete period.
 
-@author: swhetzel
+The functions in this module mainly compile nested lists of statistics with
+outer lists containing statistics for a single team. 
+
 """
 
 import espn_scraper as espn

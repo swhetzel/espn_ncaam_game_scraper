@@ -1,8 +1,9 @@
 # -*- coding: utf-8 -*-
-"""
-Created on Tue Mar 16 12:35:15 2021
+"""This module takes team statistics and creates various visuals.
 
-@author: swhetzel
+This module takes the espn_team_stats module 
+
+
 """
 import espn_scraper as espn
 import espn_team_stats as espn_team
