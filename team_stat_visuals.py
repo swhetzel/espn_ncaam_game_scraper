@@ -2,7 +2,8 @@
 """This module takes team statistics and creates various visuals.
 
 This gets data from the espn_team_stats, and espn_scraper module and
-applies various libraries to visualize the data.
+applies various libraries to visualize the data. Work on this module
+is ongoing.
 
 """
 import espn_scraper as espn
