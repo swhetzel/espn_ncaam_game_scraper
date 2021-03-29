@@ -10,13 +10,13 @@ import espn_scraper as espn
 import espn_team_stats as espn_team
 import pygal
 import plotly.express as px
-import pandas as pd
+import plotly.graph_objects as go
 import dash
 import dash_core_components as dcc
 import dash_html_components as html
 
 
-game_id = "401301254"
+game_id = "401300971"
 plays = espn.play_by_play_builder(game_id)
 shot_type_list = espn_team.get_team_shots(plays, game_id)
 ft_list = espn_team.get_team_fts(plays, game_id)
@@ -74,31 +74,69 @@ h1_home_pcts_chart.add("2nd Half", h2_home_shot_pcts)
 h1_home_pcts_chart.render_to_file("home_shots_by_half.svg")
 
 
-# Trying to Create these same charts using Pandas and Plotly
-df = pd.DataFrame(dict(r=away_shot_pcts, theta=x_labels))
-fig = px.line_polar(df, r="r", theta="theta", line_close=True)
-fig.update_traces(fill="toself")
+# Trying to Create these same charts using Plotly Dash
+fig = go.Figure()
+fig.add_trace(
+    go.Scatterpolar(
+        r=h1_away_shot_pcts,
+        theta=x_labels,
+        fill="toself",
+        name=teams[0] + " 1st half shot pcts",
+    )
+)
+fig.add_trace(
+    go.Scatterpolar(
+        r=h2_away_shot_pcts,
+        theta=x_labels,
+        fill="toself",
+        name=teams[0] + " 2nd half shot pcts",
+    )
+)
+
+fig2 = go.Figure()
+fig2.add_trace(
+    go.Scatterpolar(
+        r=h1_home_shot_pcts,
+        theta=x_labels,
+        fill="toself",
+        name=teams[1] + " 1st half shot pcts",
+    )
+)
+fig2.add_trace(
+    go.Scatterpolar(
+        r=h2_home_shot_pcts,
+        theta=x_labels,
+        fill="toself",
+        name=teams[1] + " 2nd half shot pcts",
+    )
+)
 
 
 external_stylesheets = ["https://codepen.io/chriddyp/pen/bWLwgP.css"]
 
 app = dash.Dash(__name__, external_stylesheets=external_stylesheets)
 
-# assume you have a "long-form" data frame
-# see https://plotly.com/python/px-arguments/ for more options
-
-
 app.layout = html.Div(
     children=[
         html.H1(children="Team Shooting Efficiency by Half"),
         html.Div(
-            children="""
-        Dash: A web application framework for Python.
-    """
+            children="""Radar charts showing the shooting percentages by team by half"""
         ),
-        dcc.Graph(id="example-graph", figure=fig),
+        html.Div(
+            [
+                dcc.Graph(id="away shooting pcts", figure=fig),
+            ],
+            style={"width": "49%", "display": "inline-block", "padding": "0 20"},
+        ),
+        html.Div(
+            [
+                dcc.Graph(id="home shooting pcts", figure=fig2),
+            ],
+            style={"width": "49%", "display": "inline-block", "padding": "0 20"},
+        ),
     ]
 )
+
 
 if __name__ == "__main__":
     app.run_server(debug=True)
