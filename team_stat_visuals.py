@@ -2,141 +2,154 @@
 """This module takes team statistics and creates various visuals.
 
 This gets data from the espn_team_stats, and espn_scraper module and
-applies various libraries to visualize the data. Work on this module
-is ongoing.
+applies various libraries to visualize the data in a dashboard using plotly
+dash. 
+
+game_id is set using the ESPN game ID in the URL from the game summary.
+For example, the game summary for Syracuse v UVA on March 11th, 2021 has the
+url: https://www.espn.com/mens-college-basketball/game?gameId=401300971
+in this case game_id = '401300971'
 
 """
 import espn_scraper as espn
 import espn_team_stats as espn_team
-import pygal
-import plotly.express as px
 import plotly.graph_objects as go
+import plotly.express as px
 import dash
 import dash_core_components as dcc
 import dash_html_components as html
+import pandas as pd
+
+
+def generate_pts_by_shot_fig(plays, game_id, teams, title, periods=[1, 2, 3, 4, 5, 6, 7, 8, 9, 10]):
+    """Generate the figure for the point volume by shot type for each team/half"""
+    # Points by shot type    
+    pts = espn_team.get_points_from_shot_type(plays, game_id, periods)
+    
+    pts_list = []
+    for team in pts:
+        for pts in team:
+            pts_list.append(pts)
+    away_team = teams[0]
+    home_team = teams[1]
+    teams_list = []
+    for i in range(1,9):
+        if i < 5:
+            teams_list.append(away_team)
+        else:
+            teams_list.append(home_team)
+    shot_type = ["Two","Three","FT","Total","Two","Three","FT","Total"]      
+    pts = pd.DataFrame({"Points":pts_list,"Teams":teams_list,"Shot Type":shot_type})
+    pts_fig = px.bar(pts, x="Shot Type", y="Points",color="Teams",barmode="group",title=title)
+    return pts_fig
+
+
+def generate_shooting_pcts_radar(plays, game_id, team, periods=[1,2]):
+    """Generates radar charts displaying team shooting percents by half"""
+    team_flag = 0
+    if team=='home':
+        team_flag = 1
+    
+    shot_pcts1 = espn_team.get_team_fg_pcts(plays, game_id, periods=[1])[team_flag]
+    ft_pcts1 = espn_team.get_team_ft_pcts(plays, game_id, periods=[1])[team_flag]
+    shot_pcts1.append(ft_pcts1)
+    
+    
+    shot_pcts2 = espn_team.get_team_fg_pcts(plays, game_id, periods=[2])[team_flag]
+    ft_pcts2 = espn_team.get_team_ft_pcts(plays, game_id, periods=[2])[team_flag]
+    shot_pcts2.append(ft_pcts2)
+    
+    
+    labels = ["2 pt Percentage", "3 pt Percentage", "Fg Percentage", "FT Percentage"]
+    
+    fig = go.Figure()
+    fig.add_trace(
+        go.Scatterpolar(
+            r=shot_pcts1,
+            theta=labels,
+            fill="toself",
+            name=teams[team_flag] + " 1st half shot pcts"
+            )
+        )
+    fig.add_trace(
+        go.Scatterpolar(
+            r=shot_pcts2,
+            theta=labels,
+            fill="toself",
+            name=teams[team_flag] + " 2nd half shot pcts"
+            )
+        )
+    fig.update_layout(title_text=teams[team_flag],title_xref='paper',title_x=0.5)
+    return fig
 
 
 game_id = "401300971"
 plays = espn.play_by_play_builder(game_id)
-shot_type_list = espn_team.get_team_shots(plays, game_id)
-ft_list = espn_team.get_team_fts(plays, game_id)
-team_fg_pcts = espn_team.get_team_fg_pcts(plays, game_id)
-team_ft_pcts = espn_team.get_team_ft_pcts(plays, game_id)
-teams = espn.get_teams("", game_id)
-print(teams)
+teams = espn.get_teams("", game_id)   
 
-# print(team_ft_pcts)
-# print(team_fg_pcts)
+h1_pts_fig = generate_pts_by_shot_fig(plays, game_id, teams, "1st Half", [1])
+h1_pts_fig.update_layout(title_xref='paper', title_x=0.5)
 
-away_shot_pcts = team_fg_pcts[0]
-away_shot_pcts.append(team_ft_pcts[0])
-home_shot_pcts = team_fg_pcts[1]
-home_shot_pcts.append(team_ft_pcts[1])
+h2_pts_fig = generate_pts_by_shot_fig(plays, game_id, teams, "2nd Half", [2])
+h2_pts_fig.update_layout(title_xref='paper', title_x=0.5)
 
-x_labels = ["3 pt Percentage", "2 pt Percentage", "Fg Percentage", "FT Percentage"]
-team_shot_pcts_chart = pygal.Radar()
-team_shot_pcts_chart.title = "Shooting Percentages by Team"
-team_shot_pcts_chart.x_labels = x_labels
-team_shot_pcts_chart.add(teams[0], away_shot_pcts)
-team_shot_pcts_chart.add(teams[1], home_shot_pcts)
-team_shot_pcts_chart.render_to_file("team_shot_pcts.svg")
+game_pts_fig = generate_pts_by_shot_fig(plays,game_id, teams, "Entire Game")
+game_pts_fig.update_layout(title_xref='paper', title_x=0.5)   
 
-# Split 1st half and 2nd half
-period1 = [1]
-period2 = [2]
-
-half1_fg_pcts = espn_team.get_team_fg_pcts(plays, game_id, period1)
-half2_fg_pcts = espn_team.get_team_fg_pcts(plays, game_id, period2)
-half1_ft_pcts = espn_team.get_team_ft_pcts(plays, game_id, period1)
-half2_ft_pcts = espn_team.get_team_ft_pcts(plays, game_id, period2)
-
-h1_away_shot_pcts = half1_fg_pcts[0]
-h1_away_shot_pcts.append(espn_team.get_team_ft_pcts(plays, game_id, period1)[0])
-h1_home_shot_pcts = half1_fg_pcts[1]
-h1_home_shot_pcts.append(espn_team.get_team_ft_pcts(plays, game_id, period1)[1])
-h2_away_shot_pcts = half2_fg_pcts[0]
-h2_away_shot_pcts.append(espn_team.get_team_ft_pcts(plays, game_id, period2)[0])
-h2_home_shot_pcts = half2_fg_pcts[1]
-h2_home_shot_pcts.append(espn_team.get_team_ft_pcts(plays, game_id, period2)[1])
-
-h1_away_pcts_chart = pygal.Radar()
-h1_away_pcts_chart.title = str(teams[0] + " Shooting pcts by Half")
-h1_away_pcts_chart.x_labels = x_labels
-h1_away_pcts_chart.add("1st Half", h1_away_shot_pcts)
-h1_away_pcts_chart.add("2nd Half", h2_away_shot_pcts)
-h1_away_pcts_chart.render_to_file("away_shots_by_half.svg")
-
-h1_home_pcts_chart = pygal.Radar()
-h1_home_pcts_chart.title = str(teams[1] + " Shooting pcts by Half")
-h1_home_pcts_chart.x_labels = x_labels
-h1_home_pcts_chart.add("1st Half", h1_home_shot_pcts)
-h1_home_pcts_chart.add("2nd Half", h2_home_shot_pcts)
-h1_home_pcts_chart.render_to_file("home_shots_by_half.svg")
+away_shooting_radar_fig = generate_shooting_pcts_radar(plays, game_id, team="away")
+home_shooting_radar_fig = generate_shooting_pcts_radar(plays, game_id, team="home")
 
 
-# Trying to Create these same charts using Plotly Dash
-fig = go.Figure()
-fig.add_trace(
-    go.Scatterpolar(
-        r=h1_away_shot_pcts,
-        theta=x_labels,
-        fill="toself",
-        name=teams[0] + " 1st half shot pcts",
+flag = True
+if flag==True:
+    external_stylesheets = ["https://codepen.io/chriddyp/pen/bWLwgP.css"]
+    
+    app = dash.Dash(__name__, external_stylesheets=external_stylesheets)
+    
+    app.layout = html.Div(
+        children=[
+            html.H1(children="Team Shooting Statistics by Period"),
+            
+            html.Div(
+                children="""Radar charts showing the shooting percentages by team by half"""
+            ),
+            html.Div(
+                [
+                    dcc.Graph(id="away shooting pcts", figure=away_shooting_radar_fig),
+                ],
+                style={"width": "49%", "display": "inline-block", "padding": "0 20"},
+            ),
+            html.Div(
+                [
+                    dcc.Graph(id="home shooting pcts", figure=home_shooting_radar_fig),
+                ],
+                style={"width": "49%", "display": "inline-block", "padding": "0 20"},
+            ),
+
+            html.Div(
+                children="""Team Points by Shot Type and Period"""      
+            ),
+            html.Div(
+                [
+                    dcc.Graph(id="h1 points by shot type",figure=h1_pts_fig)
+                ],
+                style={"width": "32%", "display": "inline-block", "padding": "0 20"},
+                ),
+            html.Div(
+                [
+                    dcc.Graph(id="h2 points by shot type",figure=h2_pts_fig)
+                ],
+                style={"width": "32%", "display": "inline-block", "padding": "0 20"},
+                ),
+            html.Div(
+                [
+                    dcc.Graph(id="game points by shot type",figure=game_pts_fig)
+                ],
+                style={"width": "32%", "display": "inline-block", "padding": "0 20"},
+                )
+        ]
     )
-)
-fig.add_trace(
-    go.Scatterpolar(
-        r=h2_away_shot_pcts,
-        theta=x_labels,
-        fill="toself",
-        name=teams[0] + " 2nd half shot pcts",
-    )
-)
-
-fig2 = go.Figure()
-fig2.add_trace(
-    go.Scatterpolar(
-        r=h1_home_shot_pcts,
-        theta=x_labels,
-        fill="toself",
-        name=teams[1] + " 1st half shot pcts",
-    )
-)
-fig2.add_trace(
-    go.Scatterpolar(
-        r=h2_home_shot_pcts,
-        theta=x_labels,
-        fill="toself",
-        name=teams[1] + " 2nd half shot pcts",
-    )
-)
-
-
-external_stylesheets = ["https://codepen.io/chriddyp/pen/bWLwgP.css"]
-
-app = dash.Dash(__name__, external_stylesheets=external_stylesheets)
-
-app.layout = html.Div(
-    children=[
-        html.H1(children="Team Shooting Efficiency by Half"),
-        html.Div(
-            children="""Radar charts showing the shooting percentages by team by half"""
-        ),
-        html.Div(
-            [
-                dcc.Graph(id="away shooting pcts", figure=fig),
-            ],
-            style={"width": "49%", "display": "inline-block", "padding": "0 20"},
-        ),
-        html.Div(
-            [
-                dcc.Graph(id="home shooting pcts", figure=fig2),
-            ],
-            style={"width": "49%", "display": "inline-block", "padding": "0 20"},
-        ),
-    ]
-)
-
-
-if __name__ == "__main__":
-    app.run_server(debug=True)
+    
+    
+    if __name__ == "__main__":
+        app.run_server(debug=True)

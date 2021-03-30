@@ -119,7 +119,7 @@ def get_team_fg_pcts(plays, game_id, periods=[1, 2, 3, 4, 5, 6, 7, 8, 9, 10]):
 
 
 def get_team_fts(plays, game_id, periods=[1, 2, 3, 4, 5, 6, 7, 8, 9, 10]):
-    """Gets the free throws taken and made by each team"""
+    """Gets the free throws taken and made by each team returned as a list"""
     teams = espn.get_teams("", game_id)
     away_ft_atts, away_fts_made = 0, 0
     home_ft_atts, home_fts_made = 0, 0
@@ -155,3 +155,29 @@ def get_team_ft_pcts(plays, game_id, periods=[1, 2, 3, 4, 5, 6, 7, 8, 9, 10]):
         home_ft_pct = 0
     team_ft_pcts = [away_ft_pct, home_ft_pct]
     return team_ft_pcts
+
+
+def get_points_from_shot_type(plays, game_id, periods=[1, 2, 3, 4, 5, 6, 7, 8, 9, 10]):
+    """Gets the points each team got from a certain shot type for the specified period(s)"""
+    team_shots = get_team_shots(plays, game_id, periods)
+    team_fts = get_team_fts(plays, game_id, periods)
+
+    away_twos = team_shots[0][0][1]
+    away_threes = team_shots[0][1][1]
+    away_fts = team_fts[0][1]
+    home_twos = team_shots[1][0][1]
+    home_threes = team_shots[1][1][1]
+    home_fts = team_fts[1][1]
+
+    away_two_pts = away_twos * 2
+    away_three_pts = away_threes * 3
+    home_two_pts = home_twos * 2
+    home_three_pts = home_threes * 3
+    away_total = away_two_pts + away_three_pts + away_fts
+    home_total = home_two_pts + home_three_pts + home_fts
+
+    points_by_shot_type = [
+        [away_two_pts, away_three_pts, away_fts, away_total],
+        [home_two_pts, home_three_pts, home_fts, home_total],
+    ]
+    return points_by_shot_type
